@@ -4,7 +4,7 @@ import { EventList } from './components/EventList';
 import { EventDetail } from './components/EventDetail';
 import { FilterBar } from './components/FilterBar';
 import { fetchApiEvents } from './api/events';
-import { geocodeAddresses } from './utils/geocode';
+import { geocodeAddresses, isCachedAddresses } from './utils/geocode';
 import { resolveAddress, resolvePrefecture } from './utils/address';
 import type { TournamentEvent, AgeCategory, TournamentGrade } from './types';
 import { mapEventType, mapAgeCategory, mapTournamentGrade } from './types';
@@ -39,7 +39,11 @@ export function App() {
         const addresses = [...new Set(apiEvents.map(resolveAddress).filter(Boolean))];
 
         setLoading(false);
-        setGeocoding(true);
+
+        const hasCachedAll = isCachedAddresses(addresses);
+        if (!hasCachedAll) {
+          setGeocoding(true);
+        }
 
         const createEvent = (e: typeof apiEvents[0], latlng: { lat: number; lng: number }): TournamentEvent => ({
           id: String(e.id),
@@ -76,27 +80,41 @@ export function App() {
         }
 
         const resolved = new Set<string>();
+        let coords: Record<string, { lat: number; lng: number } | null> = {};
 
-        const coords = await geocodeAddresses(
-          addresses,
-          (done, total) => {
-            if (!cancelled) setGeocodeProgress({ done, total });
-          },
-          (address, latlng) => {
-            if (cancelled) return;
-            resolved.add(address);
-
+        if (hasCachedAll) {
+          coords = await geocodeAddresses(addresses);
+          const newEventsList: TournamentEvent[] = [];
+          apiEvents.forEach(e => {
+            const addr = resolveAddress(e);
+            const latlng = coords[addr];
             if (latlng) {
-              const eventsForAddr = addressToEvents.get(address) || [];
-              const newEvents = eventsForAddr.map(e => createEvent(e, latlng));
-              setEvents(prev => {
-                const ids = new Set(prev.map(e => e.id));
-                const filtered = newEvents.filter(e => !ids.has(e.id));
-                return [...prev, ...filtered];
-              });
+              newEventsList.push(createEvent(e, latlng));
             }
-          },
-        );
+          });
+          setEvents(newEventsList);
+        } else {
+          coords = await geocodeAddresses(
+            addresses,
+            (done, total) => {
+              if (!cancelled) setGeocodeProgress({ done, total });
+            },
+            (address, latlng) => {
+              if (cancelled) return;
+              resolved.add(address);
+
+              if (latlng) {
+                const eventsForAddr = addressToEvents.get(address) || [];
+                const newEvents = eventsForAddr.map(e => createEvent(e, latlng));
+                setEvents(prev => {
+                  const ids = new Set(prev.map(e => e.id));
+                  const filtered = newEvents.filter(e => !ids.has(e.id));
+                  return [...prev, ...filtered];
+                });
+              }
+            },
+          );
+        }
 
         if (cancelled) return;
 
@@ -226,7 +244,7 @@ export function App() {
           <div className="loading-bar-top__content">
             <div className="loading-spinner-small" />
             <span className="loading-bar-top__text">
-              {loading ? '大会データを取得中…' : geocodeProgress ? `地図情報を読み込み中（初回のみ）: ${geocodeProgress.done} / ${geocodeProgress.total}` : '地図情報を取得中…'}
+              {loading ? 'イベントを一括取得中(初回のみ)' : geocodeProgress ? `地図情報を読み込み中（初回のみ）: ${geocodeProgress.done} / ${geocodeProgress.total}` : '地図情報を取得中…'}
             </span>
           </div>
           {geocoding && geocodeProgress && (

@@ -39,6 +39,11 @@ function saveCache(cache: Record<string, LatLng>) {
   localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
 }
 
+export function isCachedAddresses(addresses: string[]): boolean {
+  const cache = loadCache();
+  return addresses.every(addr => cache[addr] !== undefined);
+}
+
 async function geocodeOne(address: string): Promise<LatLng | null> {
   const query = normalizeAddress(address);
   const url = `${GSI_BASE}?q=${encodeURIComponent(query)}`;
