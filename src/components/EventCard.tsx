@@ -1,5 +1,5 @@
 import type { TournamentEvent } from '../types';
-import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from '../types';
+import { getBadgeLabel, getBadgeColor } from '../types';
 import { formatDate } from '../utils/date';
 
 interface Props {
@@ -9,7 +9,8 @@ interface Props {
 }
 
 export function EventCard({ event, selected, onClick }: Props) {
-  const color = EVENT_TYPE_COLORS[event.type];
+  const color = getBadgeColor(event);
+  const label = getBadgeLabel(event);
 
   return (
     <button
@@ -19,9 +20,9 @@ export function EventCard({ event, selected, onClick }: Props) {
     >
       <div className="event-card__header">
         <span className="event-card__badge" style={{ background: color }}>
-          {EVENT_TYPE_LABELS[event.type]}
+          {label}
         </span>
-        <span className="event-card__date">{formatDate(event.date)}</span>
+        <span className="event-card__date">{formatDate(event.startDate)}</span>
       </div>
       <p className="event-card__name">{event.name}</p>
       <p className="event-card__venue">

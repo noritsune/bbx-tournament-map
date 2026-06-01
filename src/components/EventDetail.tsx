@@ -1,39 +1,78 @@
 import type { TournamentEvent } from '../types';
-import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from '../types';
-import { formatDate } from '../utils/date';
+import { getBadgeLabel, getBadgeColor } from '../types';
+import { formatDate, formatTime } from '../utils/date';
 
 interface Props {
   event: TournamentEvent;
   onClose: () => void;
+  hideVenue?: boolean;
 }
 
-export function EventDetail({ event, onClose }: Props) {
-  const color = EVENT_TYPE_COLORS[event.type];
+function Section({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="ed-section">
+      <p className="ed-section__label">{label}</p>
+      <p className="ed-section__value">{value}</p>
+    </div>
+  );
+}
+
+export function EventDetail({ event, onClose, hideVenue = false }: Props) {
+  const color = getBadgeColor(event);
+  const label = getBadgeLabel(event);
+  const time = formatTime(event.startDate);
 
   return (
     <div className="event-detail">
       <div className="event-detail__bar" style={{ background: color }} />
+
       <div className="event-detail__content">
         <button className="event-detail__close" onClick={onClose} aria-label="閉じる">✕</button>
-        <span className="event-detail__badge" style={{ background: color }}>
-          {EVENT_TYPE_LABELS[event.type]}
-        </span>
-        <h2 className="event-detail__name">{event.name}</h2>
-        <dl className="event-detail__info">
-          <dt>開催日</dt>
-          <dd>{formatDate(event.date)}</dd>
-          <dt>会場</dt>
-          <dd>{event.venue}</dd>
-          <dt>住所</dt>
-          <dd>{event.address}</dd>
-          {event.price && <><dt>参加費</dt><dd>{event.price}</dd></>}
-          {event.capacity && <><dt>定員</dt><dd>{event.capacity} 名</dd></>}
-          {event.shikaku && <><dt>参加資格</dt><dd>{event.shikaku}</dd></>}
-        </dl>
-        <div className="event-detail__actions">
+
+        {/* ヘッダー */}
+        <div className="ed-header">
+          <p className="ed-header__date">
+            {formatDate(event.startDate)}
+            {time && <span className="ed-header__time">　{time}</span>}
+          </p>
+          <span className="ed-header__badge" style={{ background: color }}>
+            {label}
+          </span>
+          <p className="ed-header__uketsuke">
+            当日受付：{event.uketsuke ? 'あり' : 'なし'}
+          </p>
+          {event.price && <p className="ed-header__price">参加費：{event.price}</p>}
+        </div>
+
+        <h2 className="ed-name">{event.name}</h2>
+
+        {event.capacity && (
+          <p className="ed-capacity">定員数 {event.capacity} 名</p>
+        )}
+
+        <Section label="参加資格" value={event.shikaku} />
+
+        {/* 会場（複数イベント時は親が共通表示するので非表示） */}
+        {!hideVenue && (
+          <div className="ed-section">
+            <p className="ed-section__label">会場</p>
+            <p className="ed-section__value">{event.venue}</p>
+            <p className="ed-section__sub">{event.address}</p>
+          </div>
+        )}
+
+        <Section label="参加方法" value={event.annai} />
+        <Section label="告知媒体" value={event.media} />
+        <Section label="大会形式" value={event.keishiki} />
+        <Section label="持ち物" value={event.motimono} />
+        <Section label="お知らせ" value={event.tyuui} />
+
+        {/* リンク（Google Mapsは複数イベント時は共通ヘッダーに表示） */}
+        <div className="ed-actions">
           {event.detailUrl && (
             <a
-              className="event-detail__link"
+              className="ed-btn ed-btn--primary"
               href={event.detailUrl}
               target="_blank"
               rel="noopener noreferrer"
@@ -41,16 +80,17 @@ export function EventDetail({ event, onClose }: Props) {
               公式ページ ↗
             </a>
           )}
-          <a
-            className="event-detail__map-link"
-            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.address)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Google Maps ↗
-          </a>
+          {!hideVenue && (
+            <a
+              className="ed-btn"
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.address)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Maps ↗
+            </a>
+          )}
         </div>
-        {event.annai && <p className="event-detail__note">{event.annai}</p>}
       </div>
     </div>
   );

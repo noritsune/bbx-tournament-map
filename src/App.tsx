@@ -6,10 +6,10 @@ import { FilterBar } from './components/FilterBar';
 import { fetchApiEvents } from './api/events';
 import { geocodeAddresses } from './utils/geocode';
 import { resolveAddress, resolvePrefecture } from './utils/address';
-import type { TournamentEvent, EventType } from './types';
-import { EVENT_TYPE_LABELS, mapEventType } from './types';
+import type { TournamentEvent, AgeCategory, TournamentGrade } from './types';
+import { mapEventType, mapAgeCategory, mapTournamentGrade } from './types';
 
-const ALL_TYPES = Object.keys(EVENT_TYPE_LABELS) as EventType[];
+const ALL_GRADES: TournamentGrade[] = ['G3', 'G2', 'G1', 'S1', 'other'];
 
 export function App() {
   const [events, setEvents] = useState<TournamentEvent[]>([]);
@@ -19,7 +19,10 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeTypes, setActiveTypes] = useState<Set<EventType>>(new Set(ALL_TYPES));
+  // 同座標の複数イベントをまとめて右パネルに表示するためのグループ
+  const [panelEvents, setPanelEvents] = useState<TournamentEvent[]>([]);
+  const [activeAgeCategories, setActiveAgeCategories] = useState<Set<AgeCategory>>(new Set(['open']));
+  const [activeGrades, setActiveGrades] = useState<Set<TournamentGrade>>(new Set(ALL_GRADES));
   const [query, setQuery] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -60,16 +63,23 @@ export function App() {
               id: String(e.id),
               name: e.name ?? e.event_type_open_name,
               type: mapEventType(e),
-              date: e.start_date.split(' ')[0],
+              ageCategory: mapAgeCategory(e),
+              grade: mapTournamentGrade(e),
+              startDate: e.start_date,
               venue: e.place_name || e.shop_name,
               address: addr,
               prefecture: resolvePrefecture(e),
               lat: latlng.lat,
               lng: latlng.lng,
+              uketsuke: e.uketsuke,
               price: e.price ?? undefined,
-              capacity: e.capacity,
-              shikaku: e.shikaku ?? undefined,
-              annai: e.annai,
+              capacity: e.capacity || undefined,
+              shikaku: e.shikaku || undefined,
+              annai: e.annai || undefined,
+              media: e.media ?? undefined,
+              keishiki: e.keishiki || undefined,
+              motimono: e.motimono || undefined,
+              tyuui: e.tyuui ?? undefined,
               detailUrl: e.detail_link_url ?? undefined,
             };
             return [event];
@@ -113,7 +123,8 @@ export function App() {
   const filteredEvents = useMemo(() => {
     const q = query.trim().toLowerCase();
     return events.filter(e => {
-      if (!activeTypes.has(e.type)) return false;
+      if (!activeAgeCategories.has(e.ageCategory)) return false;
+      if (!activeGrades.has(e.grade)) return false;
       if (!q) return true;
       return (
         e.name.toLowerCase().includes(q) ||
@@ -122,20 +133,34 @@ export function App() {
         e.address.toLowerCase().includes(q)
       );
     });
-  }, [events, activeTypes, query]);
-
-  const selectedEvent = selectedId ? events.find(e => e.id === selectedId) ?? null : null;
+  }, [events, activeAgeCategories, activeGrades, query]);
 
   const handleSelect = useCallback((event: TournamentEvent) => {
     setSelectedId(event.id);
+    // 同座標（小数点5桁一致）のイベントをパネルに表示
+    const lat = event.lat.toFixed(5);
+    const lng = event.lng.toFixed(5);
+    const group = events.filter(
+      e => e.lat.toFixed(5) === lat && e.lng.toFixed(5) === lng,
+    );
+    setPanelEvents(group.length > 0 ? group : [event]);
     if (window.innerWidth < 768) setSidebarOpen(false);
+  }, [events]);
+
+  const toggleAge = useCallback((cat: AgeCategory) => {
+    setActiveAgeCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
   }, []);
 
-  const toggleType = useCallback((type: EventType) => {
-    setActiveTypes(prev => {
+  const toggleGrade = useCallback((grade: TournamentGrade) => {
+    setActiveGrades(prev => {
       const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
+      if (next.has(grade)) next.delete(grade);
+      else next.add(grade);
       return next;
     });
   }, []);
@@ -196,8 +221,10 @@ export function App() {
 
         <aside className={`sidebar${sidebarOpen ? ' sidebar--open' : ''}`}>
           <FilterBar
-            activeTypes={activeTypes}
-            onToggle={toggleType}
+            activeAgeCategories={activeAgeCategories}
+            onToggleAge={toggleAge}
+            activeGrades={activeGrades}
+            onToggleGrade={toggleGrade}
             query={query}
             onQueryChange={setQuery}
           />
@@ -230,17 +257,48 @@ export function App() {
               </div>
             </div>
           )}
-
-          {/* 詳細パネル */}
-          {selectedEvent && !isInitializing && (
-            <div className="detail-overlay">
-              <EventDetail
-                event={selectedEvent}
-                onClose={() => setSelectedId(null)}
-              />
-            </div>
-          )}
         </main>
+
+        {/* 大会詳細パネル（同座標の複数イベントに対応） */}
+        {selectedId && panelEvents.length > 0 && (
+          <aside className="detail-panel">
+            {panelEvents.length > 1 && (
+              <div className="detail-panel__header">
+                <div className="detail-panel__meta">
+                  <span className="detail-panel__title">{panelEvents.length} 件の大会</span>
+                  <span className="detail-panel__venue">
+                    {panelEvents[0].prefecture} · {panelEvents[0].venue}
+                  </span>
+                  <span className="detail-panel__address">{panelEvents[0].address}</span>
+                  <a
+                    className="detail-panel__maps-link"
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(panelEvents[0].address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Google Maps ↗
+                  </a>
+                </div>
+                <button
+                  className="detail-panel__close"
+                  onClick={() => { setSelectedId(null); setPanelEvents([]); }}
+                  aria-label="閉じる"
+                >✕</button>
+              </div>
+            )}
+            <div className="detail-panel__scroll">
+              {panelEvents.map((ev, i) => (
+                <div key={ev.id} className={i > 0 ? 'detail-panel__divider' : ''}>
+                  <EventDetail
+                    event={ev}
+                    onClose={() => { setSelectedId(null); setPanelEvents([]); }}
+                    hideVenue={panelEvents.length > 1}
+                  />
+                </div>
+              ))}
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );

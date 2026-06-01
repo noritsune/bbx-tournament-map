@@ -1,16 +1,26 @@
-import type { EventType } from '../types';
-import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS } from '../types';
+import type { AgeCategory, TournamentGrade } from '../types';
+import { AGE_CATEGORY_LABELS, GRADE_LABELS, GRADE_COLORS } from '../types';
 
-const ALL_TYPES = Object.keys(EVENT_TYPE_LABELS) as EventType[];
+const ALL_GRADES: TournamentGrade[] = ['G3', 'G2', 'G1', 'S1', 'other'];
+const ALL_AGES: AgeCategory[] = ['open', 'regular'];
 
 interface Props {
-  activeTypes: Set<EventType>;
-  onToggle: (type: EventType) => void;
+  activeAgeCategories: Set<AgeCategory>;
+  onToggleAge: (cat: AgeCategory) => void;
+  activeGrades: Set<TournamentGrade>;
+  onToggleGrade: (grade: TournamentGrade) => void;
   query: string;
   onQueryChange: (q: string) => void;
 }
 
-export function FilterBar({ activeTypes, onToggle, query, onQueryChange }: Props) {
+export function FilterBar({
+  activeAgeCategories,
+  onToggleAge,
+  activeGrades,
+  onToggleGrade,
+  query,
+  onQueryChange,
+}: Props) {
   return (
     <div className="filter-bar">
       <div className="filter-bar__search">
@@ -22,20 +32,42 @@ export function FilterBar({ activeTypes, onToggle, query, onQueryChange }: Props
           onChange={e => onQueryChange(e.target.value)}
         />
       </div>
-      <div className="filter-bar__types">
-        {ALL_TYPES.map(type => {
-          const active = activeTypes.has(type);
-          return (
-            <button
-              key={type}
-              className={`filter-chip${active ? ' filter-chip--active' : ''}`}
-              style={active ? { background: EVENT_TYPE_COLORS[type], borderColor: EVENT_TYPE_COLORS[type] } : {}}
-              onClick={() => onToggle(type)}
-            >
-              {EVENT_TYPE_LABELS[type]}
-            </button>
-          );
-        })}
+
+      <div className="filter-section">
+        <p className="filter-section__label">年齢区分</p>
+        <div className="filter-checks">
+          {ALL_AGES.map(cat => (
+            <label key={cat} className="filter-check">
+              <input
+                type="checkbox"
+                checked={activeAgeCategories.has(cat)}
+                onChange={() => onToggleAge(cat)}
+              />
+              <span>{AGE_CATEGORY_LABELS[cat]}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="filter-section">
+        <p className="filter-section__label">大会タイプ</p>
+        <div className="filter-checks">
+          {ALL_GRADES.map(grade => (
+            <label key={grade} className="filter-check">
+              <input
+                type="checkbox"
+                checked={activeGrades.has(grade)}
+                onChange={() => onToggleGrade(grade)}
+              />
+              <span
+                className="filter-check__badge"
+                style={{ background: GRADE_COLORS[grade] }}
+              >
+                {GRADE_LABELS[grade]}
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
     </div>
   );
