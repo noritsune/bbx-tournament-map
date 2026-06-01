@@ -36,13 +36,11 @@ export function App() {
 
         if (cancelled) return;
 
-        // 住所を一覧化（重複排除）。place_address が空の場合は address1+address2 を使う
         const addresses = [...new Set(apiEvents.map(resolveAddress).filter(Boolean))];
 
         setLoading(false);
         setGeocoding(true);
 
-        // マッピング関数を独立させて、座標確定順にイベントを追加可能にする
         const createEvent = (e: typeof apiEvents[0], latlng: { lat: number; lng: number }): TournamentEvent => ({
           id: String(e.id),
           name: e.name ?? e.event_type_open_name,
@@ -68,30 +66,50 @@ export function App() {
           detailUrl: e.detail_link_url ?? undefined,
         });
 
-        // 座標確定済みイベントのメモリ内キャッシュ
-        const mapped = new Map<string, TournamentEvent>();
-        const failed: typeof apiEvents = [];
+        const addressToEvents = new Map<string, typeof apiEvents>();
+        for (const e of apiEvents) {
+          const addr = resolveAddress(e);
+          if (!addressToEvents.has(addr)) {
+            addressToEvents.set(addr, []);
+          }
+          addressToEvents.get(addr)!.push(e);
+        }
 
-        const coords = await geocodeAddresses(addresses, (done, total) => {
-          if (!cancelled) setGeocodeProgress({ done, total });
-        });
+        const resolved = new Set<string>();
+
+        const coords = await geocodeAddresses(
+          addresses,
+          (done, total) => {
+            if (!cancelled) setGeocodeProgress({ done, total });
+          },
+          (address, latlng) => {
+            if (cancelled) return;
+            resolved.add(address);
+
+            if (latlng) {
+              const eventsForAddr = addressToEvents.get(address) || [];
+              const newEvents = eventsForAddr.map(e => createEvent(e, latlng));
+              setEvents(prev => {
+                const ids = new Set(prev.map(e => e.id));
+                const filtered = newEvents.filter(e => !ids.has(e.id));
+                return [...prev, ...filtered];
+              });
+            }
+          },
+        );
 
         if (cancelled) return;
 
-        // 座標取得後、イベントを構築して段階的に追加
+        const failed: typeof apiEvents = [];
         apiEvents.forEach(e => {
           const addr = resolveAddress(e);
-          const latlng = coords[addr];
-          if (!latlng) {
+          if (!coords[addr]) {
             failed.push(e);
-            return;
           }
-          const event = createEvent(e, latlng);
-          mapped.set(event.id, event);
         });
 
         console.info(
-          `[BBX Map] 取得: ${apiEvents.length} 件 / 表示: ${mapped.size} 件 / 失敗: ${failed.length} 件`,
+          `[BBX Map] 取得: ${apiEvents.length} 件 / 表示: ${apiEvents.length - failed.length} 件 / 失敗: ${failed.length} 件`,
         );
         if (failed.length > 0) {
           console.warn(
@@ -106,8 +124,6 @@ export function App() {
             })),
           );
         }
-
-        setEvents(Array.from(mapped.values()));
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'データの取得に失敗しました');
@@ -210,7 +226,7 @@ export function App() {
           <div className="loading-bar-top__content">
             <div className="loading-spinner-small" />
             <span className="loading-bar-top__text">
-              {loading ? '大会データを取得中…' : geocodeProgress ? `地図情報を取得中… (${geocodeProgress.done} / ${geocodeProgress.total})` : '地図情報を取得中…'}
+              {loading ? '大会データを取得中…' : geocodeProgress ? `地図情報を読み込み中（初回のみ）: ${geocodeProgress.done} / ${geocodeProgress.total}` : '地図情報を取得中…'}
             </span>
           </div>
           {geocoding && geocodeProgress && (

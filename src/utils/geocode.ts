@@ -67,6 +67,7 @@ function sleep(ms: number) {
 export async function geocodeAddresses(
   addresses: string[],
   onProgress?: (done: number, total: number) => void,
+  onAddressResolved?: (address: string, latlng: LatLng | null) => void,
 ): Promise<Record<string, LatLng | null>> {
   const cache = loadCache();
   const result: Record<string, LatLng | null> = {};
@@ -75,6 +76,7 @@ export async function geocodeAddresses(
   for (const addr of addresses) {
     if (cache[addr] !== undefined) {
       result[addr] = cache[addr];
+      onAddressResolved?.(addr, cache[addr]);
     } else {
       uncached.push(addr);
     }
@@ -93,6 +95,7 @@ export async function geocodeAddresses(
       const latlng = results[j];
       result[addr] = latlng;
       if (latlng) cache[addr] = latlng;
+      onAddressResolved?.(addr, latlng);
       done++;
       onProgress?.(done, total);
     }
