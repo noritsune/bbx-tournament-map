@@ -844,70 +844,76 @@ body {
   border-color: var(--accent);
 }
 
-/* ===== Loading Overlay ===== */
-.loading-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(13,15,26,0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-  backdrop-filter: blur(4px);
-  pointer-events: all;
-}
-
-.loading-box {
+/* ===== Loading Bar (Top) ===== */
+.loading-bar-top {
+  position: relative;
+  z-index: 150;
   background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 32px 40px;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 14px;
-  min-width: 240px;
-  text-align: center;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  justify-content: space-between;
+  gap: 12px;
+  height: auto;
+  pointer-events: auto;
+  animation: slideDown 0.2s ease;
 }
 
-.loading-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.loading-progress {
-  font-size: 12px;
-  color: var(--text-muted) !important;
+.loading-bar-top__content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
 }
 
-.loading-spinner {
-  width: 36px;
-  height: 36px;
-  border: 3px solid var(--border);
+.loading-spinner-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-.loading-bar {
+.loading-bar-top__text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loading-bar-top__progress {
   width: 100%;
-  height: 4px;
+  height: 2px;
   background: var(--border);
-  border-radius: 2px;
+  border-radius: 1px;
   overflow: hidden;
 }
 
-.loading-bar__fill {
+.loading-bar-top__progress-fill {
   height: 100%;
   background: var(--accent);
-  border-radius: 2px;
-  transition: width 0.3s ease;
+  border-radius: 1px;
+  transition: width 0.2s ease;
 }
 
 /* ===== Error Overlay ===== */

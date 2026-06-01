@@ -42,50 +42,56 @@ export function App() {
         setLoading(false);
         setGeocoding(true);
 
+        // マッピング関数を独立させて、座標確定順にイベントを追加可能にする
+        const createEvent = (e: typeof apiEvents[0], latlng: { lat: number; lng: number }): TournamentEvent => ({
+          id: String(e.id),
+          name: e.name ?? e.event_type_open_name,
+          type: mapEventType(e),
+          ageCategory: mapAgeCategory(e),
+          grade: mapTournamentGrade(e),
+          startDate: e.start_date,
+          venue: e.place_name || e.shop_name,
+          address: resolveAddress(e),
+          prefecture: resolvePrefecture(e),
+          lat: latlng.lat,
+          lng: latlng.lng,
+          uketsuke: e.uketsuke,
+          price: e.price ?? undefined,
+          capacity: e.capacity || undefined,
+          shikaku: e.shikaku || undefined,
+          houhou: e.houhou ?? undefined,
+          annai: e.annai || undefined,
+          media: e.media ?? undefined,
+          keishiki: e.keishiki || undefined,
+          motimono: e.motimono || undefined,
+          tyuui: e.tyuui ?? undefined,
+          detailUrl: e.detail_link_url ?? undefined,
+        });
+
+        // 座標確定済みイベントのメモリ内キャッシュ
+        const mapped = new Map<string, TournamentEvent>();
+        const failed: typeof apiEvents = [];
+
         const coords = await geocodeAddresses(addresses, (done, total) => {
           if (!cancelled) setGeocodeProgress({ done, total });
         });
 
         if (cancelled) return;
 
-        const failed: typeof apiEvents = [];
-        const mapped: TournamentEvent[] = apiEvents
-          .flatMap(e => {
-            const addr = resolveAddress(e);
-            const latlng = coords[addr];
-            if (!latlng) {
-              failed.push(e);
-              return [];
-            }
-            const event: TournamentEvent = {
-              id: String(e.id),
-              name: e.name ?? e.event_type_open_name,
-              type: mapEventType(e),
-              ageCategory: mapAgeCategory(e),
-              grade: mapTournamentGrade(e),
-              startDate: e.start_date,
-              venue: e.place_name || e.shop_name,
-              address: addr,
-              prefecture: resolvePrefecture(e),
-              lat: latlng.lat,
-              lng: latlng.lng,
-              uketsuke: e.uketsuke,
-              price: e.price ?? undefined,
-              capacity: e.capacity || undefined,
-              shikaku: e.shikaku || undefined,
-              houhou: e.houhou ?? undefined,
-              annai: e.annai || undefined,
-              media: e.media ?? undefined,
-              keishiki: e.keishiki || undefined,
-              motimono: e.motimono || undefined,
-              tyuui: e.tyuui ?? undefined,
-              detailUrl: e.detail_link_url ?? undefined,
-            };
-            return [event];
-          });
+        // 座標取得後、イベントを構築して段階的に追加
+        apiEvents.forEach(e => {
+          const addr = resolveAddress(e);
+          const latlng = coords[addr];
+          if (!latlng) {
+            failed.push(e);
+            return;
+          }
+          const event = createEvent(e, latlng);
+          mapped.set(event.id, event);
+        });
 
         console.info(
-          `[BBX Map] 取得: ${apiEvents.length} 件 / 表示: ${mapped.length} 件 / 失敗: ${failed.length} 件`,
+          `[BBX Map] 取得: ${apiEvents.length} 件 / 表示: ${mapped.size} 件 / 失敗: ${failed.length} 件`,
         );
         if (failed.length > 0) {
           console.warn(
@@ -101,7 +107,7 @@ export function App() {
           );
         }
 
-        setEvents(mapped);
+        setEvents(Array.from(mapped.values()));
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'データの取得に失敗しました');
@@ -198,33 +204,29 @@ export function App() {
         </a>
       </header>
 
-      <div className="app-body">
-        {/* ローディングオーバーレイ（app-body全体を覆う） */}
-        {isInitializing && (
-          <div className="loading-overlay">
-            <div className="loading-box">
-              <div className="loading-spinner" />
-              <p className="loading-title">
-                {loading ? '大会データを取得中…' : '地図情報を取得中…'}
-              </p>
-              {geocoding && geocodeProgress && (
-                <>
-                  <p className="loading-progress">
-                    {geocodeProgress.done} / {geocodeProgress.total} 件
-                  </p>
-                  <div className="loading-bar">
-                    <div
-                      className="loading-bar__fill"
-                      style={{
-                        width: `${(geocodeProgress.done / geocodeProgress.total) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
+      {/* ローディングバー（ヘッダーの直下） */}
+      {isInitializing && (
+        <div className="loading-bar-top">
+          <div className="loading-bar-top__content">
+            <div className="loading-spinner-small" />
+            <span className="loading-bar-top__text">
+              {loading ? '大会データを取得中…' : geocodeProgress ? `地図情報を取得中… (${geocodeProgress.done} / ${geocodeProgress.total})` : '地図情報を取得中…'}
+            </span>
           </div>
-        )}
+          {geocoding && geocodeProgress && (
+            <div className="loading-bar-top__progress">
+              <div
+                className="loading-bar-top__progress-fill"
+                style={{
+                  width: `${(geocodeProgress.done / geocodeProgress.total) * 100}%`,
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="app-body">
 
         {sidebarOpen && (
           <div
