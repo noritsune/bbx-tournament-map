@@ -1,5 +1,6 @@
-# BBX Tournament Map
 ※日本語版は下部にあります。
+
+# BBX Tournament Map
 A web app that visualizes Beyblade X tournament schedules on an interactive map.
 
 ![Screenshot](screenshot.png)
