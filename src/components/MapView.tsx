@@ -7,7 +7,7 @@ const canvasRenderer = L.canvas({ padding: 0.5 });
 const isMobile = window.innerWidth < 768;
 import type { TournamentEvent } from '../types';
 import { getBadgeColor, getBadgeLabel } from '../types';
-import { formatDate, formatTime } from '../utils/date';
+import { formatDate, formatTime, parseAsUTC } from '../utils/date';
 import { linkify } from '../utils/linkify';
 
 
@@ -15,18 +15,18 @@ import { linkify } from '../utils/linkify';
 function nearestEvent(group: TournamentEvent[]): TournamentEvent {
   const now = Date.now();
   const sorted = [...group].sort(
-    (a, b) => new Date(a.startDate.replace(/\//g, '-')).getTime()
-            - new Date(b.startDate.replace(/\//g, '-')).getTime(),
+    (a, b) => parseAsUTC(a.startDate).getTime() - parseAsUTC(b.startDate).getTime(),
   );
   return sorted.find(
-    e => new Date(e.startDate.replace(/\//g, '-')).getTime() >= now,
+    e => parseAsUTC(e.startDate).getTime() >= now,
   ) ?? sorted[sorted.length - 1];
 }
 
-/** グループ内で直近の startDate を "M/D" 形式で返す */
+/** グループ内で直近の startDate を "M/D" 形式（JST）で返す */
 function nearestDate(group: TournamentEvent[]): string {
-  const d = new Date(nearestEvent(group).startDate.replace(/\//g, '-'));
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+  const d = parseAsUTC(nearestEvent(group).startDate);
+  const jst = new Date(d.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  return `${jst.getMonth() + 1}/${jst.getDate()}`;
 }
 
 

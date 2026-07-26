@@ -1,5 +1,5 @@
 /** "2026/06/07 13:00:00"（UTC）→ Date（UTCとして解釈） */
-function parseAsUTC(dateStr: string): Date {
+export function parseAsUTC(dateStr: string): Date {
   const s = dateStr.replace(/\//g, '-');
   return new Date(s.includes(' ') ? s.replace(' ', 'T') + 'Z' : s + 'T00:00:00Z');
 }
